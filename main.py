@@ -3,6 +3,7 @@ import random
 import sys
 import os
 import argparse
+import itertools
 
 
 def find_steam():
@@ -37,6 +38,8 @@ def main(args):
     parser.add_argument("--stripquests", action="store_true")
     parser.add_argument("--charweapon", choices=["default", "basic", "wild"], default="default")
     parser.add_argument("--charlevelup", choices=["default", "basic", "wild"], default="default")
+    parser.add_argument("--epicswag", choices=["default", "type", "tier", "1", "2"], default="default")
+    parser.add_argument("--shop", choices=["default", "type", "tier", "1", "2"], default="default")
     parser.add_argument("--seed")
     conf = parser.parse_args(args)
     print(conf)
@@ -96,6 +99,19 @@ def main(args):
     if has_dlc:
         MAIN_PERKS += [("ghost_charge_beam", "ghost_charge_self_heal", "ghost_charge_beam_upgrade_1", "ghost_charge_self_heal_free", "ghost_charge_beam_upgrade_2", "ghost_charge_beam_upgrade_3", "ghost_charge_self_heal_upgrade")]
     FILLER_PERKS = ["health", "health2", "speed", "melee_damage", "melee_damage2"]
+    ITEMS = {}
+    for item in itertools.chain(bundle.getNodes("Weapon"), bundle.getNodes("Utility")):
+        rarity = item.subNode("Rarity")
+        if rarity:
+            ITEMS[item["Name"]] = (int(rarity.attr("Tier")), rarity.attr("Type"))
+    ITEMS_PER_TIER = {}
+    for name, (tier, itype) in ITEMS.items():
+        if tier not in ITEMS_PER_TIER:
+            ITEMS_PER_TIER[tier] = {"any": []}
+        if itype not in ITEMS_PER_TIER[tier]:
+            ITEMS_PER_TIER[tier][itype] = []
+        ITEMS_PER_TIER[tier][itype].append(name)
+        ITEMS_PER_TIER[tier]["any"].append(name)
 
     if conf.stripquests:
         # Remove all the quests, this generates a more streamlined experience without
@@ -166,6 +182,30 @@ def main(args):
                 upgrade.delete()
             for perk in upgrade_perks:
                 upgrades.newChild("Level").attr("Perk", perk)
+
+    for encounter in bundle.getNodes("Encounter"):
+        master_loot = encounter.subNode("MasterLoot")
+        if master_loot:
+            node = encounter
+            while node is not None and node["MissionType"] is None:
+                node = bundle.getNode("Encounter", node["Template"])
+            if node is None:  # DLC overrides existing shops so we need to get the template from the original shop.
+                node = bundle.getNode("Encounter", encounter["Name"])
+                while node is not None and node["MissionType"] is None:
+                    node = bundle.getNode("Encounter", node["Template"])
+
+            if node["MissionType"] == "heist" and conf.epicswag != "default":  # Mission type is "heist" or "bar", "heist" for battles, "bar" for shops.
+                for child in master_loot:
+                    if child.text in ITEMS:
+                        tier, itype = ITEMS[child.text]
+                        child.text = rnd.choice(ITEMS_PER_TIER[tier][itype])
+
+            if node["MissionType"] == "bar" and conf.shop != "default":  # Mission type is "heist" or "bar", "heist" for battles, "bar" for shops.
+                for child in master_loot:
+                    if child.text in ITEMS:
+                        tier, itype = ITEMS[child.text]
+                        child.text = rnd.choice(ITEMS_PER_TIER[tier][itype])
+
 
     bundle.getCSV("Language/en.csv.z").set("menu_extras", "SEED: %s" % (conf.seed))
     bundle.save()

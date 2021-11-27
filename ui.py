@@ -18,6 +18,7 @@ class MainUI:
         self.__seed = tk.StringVar()
         self.random_seed()
         self.__options = {}
+        self.__option_mapping = {}
 
         self.__row = 0
 
@@ -57,6 +58,15 @@ Basic: Distributes one main chained upgrade path per crew member
 \tFills other upgrade slots with basic entries.
 Wild: Anything goes. No guarantees that upgrade paths are complete.
 \tCould give you many different upgrade chains unfinished.""")
+        self.__addOption("epicswag", "Epic Swag", ["default", "type:match type", "tier:match tier", "1:tier +-1", "2:tier +-2"], default="type",
+                         help_text="""
+Randomize Epic Swag rewards.
+""")
+        self.__addOption("shop", "Shop Items",
+                         ["default", "type:match type", "tier:match tier", "1:tier +-1", "2:tier +-2"], default="type",
+                         help_text="""
+        Randomize Epic Swag rewards.
+        """)
 
         subframe = ttk.Frame(self.__frame)
         subframe.grid(column=1, row=self.__row, sticky=(tk.N, tk.W, tk.E, tk.S))
@@ -65,12 +75,22 @@ Wild: Anything goes. No guarantees that upgrade paths are complete.
 
     def __addOption(self, key, label, options=None, *, default=None, help_text=None):
         if options is not None:
+            option_mapping = {}
+            for option in options:
+                k = v = option
+                if ':' in option:
+                    v, k = option.split(":", 1)
+                option_mapping[k] = v
             if default is None:
-                assert default in options
-                default = options[0]
+                default = options[0].split(":")[1]
+            else:
+                for k, v in option_mapping.items():
+                    if default == v:
+                        default = k
             self.__options[key] = tk.StringVar(value=default)
+            self.__option_mapping[key] = option_mapping
             ttk.Label(self.__frame, text=label, anchor=tk.E).grid(column=0, row=self.__row, sticky=(tk.N, tk.W, tk.E, tk.S))
-            ctrl = ttk.Combobox(self.__frame, textvariable=self.__options[key], values=options, state=["readonly"])
+            ctrl = ttk.Combobox(self.__frame, textvariable=self.__options[key], values=list(option_mapping.keys()), state=["readonly"])
             ctrl.grid(column=1, row=self.__row, sticky=(tk.N, tk.W, tk.E, tk.S))
         else:
             if default is None:
@@ -113,7 +133,7 @@ Wild: Anything goes. No guarantees that upgrade paths are complete.
         for key, value in self.__options.items():
             if isinstance(value, tk.StringVar):
                 args.append("--%s" % (key))
-                args.append(value.get())
+                args.append(self.__option_mapping[key][value.get()])
             if isinstance(value, tk.BooleanVar):
                 if value.get():
                     args.append("--%s" % (key))

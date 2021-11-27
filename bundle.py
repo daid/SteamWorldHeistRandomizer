@@ -16,6 +16,14 @@ class XmlNode:
     def tag(self):
         return self.__etree.tag
 
+    @property
+    def text(self):
+        return self.__etree.text
+
+    @text.setter
+    def text(self, value):
+        self.__etree.text = value
+
     def __iter__(self):
         return iter([XmlNode(child, self.__etree) for child in self.__etree])
 
@@ -26,7 +34,10 @@ class XmlNode:
         return None
 
     def __getitem__(self, key):
-        return self.__etree.find(key).text
+        e = self.__etree.find(key)
+        if e is None:
+            return None
+        return e.text
 
     def __setitem__(self, key, value):
         e = self.__etree.find(key)
