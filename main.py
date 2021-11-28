@@ -3,7 +3,7 @@ import random
 import sys
 import os
 import argparse
-import itertools
+from items import Items
 
 
 def find_steam():
@@ -99,19 +99,7 @@ def main(args):
     if has_dlc:
         MAIN_PERKS += [("ghost_charge_beam", "ghost_charge_self_heal", "ghost_charge_beam_upgrade_1", "ghost_charge_self_heal_free", "ghost_charge_beam_upgrade_2", "ghost_charge_beam_upgrade_3", "ghost_charge_self_heal_upgrade")]
     FILLER_PERKS = ["health", "health2", "speed", "melee_damage", "melee_damage2"]
-    ITEMS = {}
-    for item in itertools.chain(bundle.getNodes("Weapon"), bundle.getNodes("Utility")):
-        rarity = item.subNode("Rarity")
-        if rarity:
-            ITEMS[item["Name"]] = (int(rarity.attr("Tier")), rarity.attr("Type"))
-    ITEMS_PER_TIER = {}
-    for name, (tier, itype) in ITEMS.items():
-        if tier not in ITEMS_PER_TIER:
-            ITEMS_PER_TIER[tier] = {"any": []}
-        if itype not in ITEMS_PER_TIER[tier]:
-            ITEMS_PER_TIER[tier][itype] = []
-        ITEMS_PER_TIER[tier][itype].append(name)
-        ITEMS_PER_TIER[tier]["any"].append(name)
+    ITEMS = Items(bundle)
 
     if conf.stripquests:
         # Remove all the quests, this generates a more streamlined experience without
@@ -196,15 +184,15 @@ def main(args):
 
             if node["MissionType"] == "heist" and conf.epicswag != "default":  # Mission type is "heist" or "bar", "heist" for battles, "bar" for shops.
                 for child in master_loot:
-                    if child.text in ITEMS:
-                        tier, itype = ITEMS[child.text]
-                        child.text = rnd.choice(ITEMS_PER_TIER[tier][itype])
+                    item = ITEMS.find(child.text)
+                    if item:
+                        child.text = rnd.choice(ITEMS.listAccordingToMathingConfig(item, conf.epicswag)).name
 
             if node["MissionType"] == "bar" and conf.shop != "default":  # Mission type is "heist" or "bar", "heist" for battles, "bar" for shops.
                 for child in master_loot:
-                    if child.text in ITEMS:
-                        tier, itype = ITEMS[child.text]
-                        child.text = rnd.choice(ITEMS_PER_TIER[tier][itype])
+                    item = ITEMS.find(child.text)
+                    if item:
+                        child.text = rnd.choice(ITEMS.listAccordingToMathingConfig(item, conf.shop)).name
 
 
     bundle.getCSV("Language/en.csv.z").set("menu_extras", "SEED: %s" % (conf.seed))
